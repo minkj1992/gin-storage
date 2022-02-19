@@ -1,10 +1,11 @@
 package controllers
 
 import (
-	"fmt"
+	"context"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 
 	"cloud.google.com/go/storage"
 	"github.com/gin-gonic/gin"
@@ -21,14 +22,22 @@ var (
 	storageClient *storage.Client
 )
 
+func getClient(ctx context.Context) (*storage.Client, error){
+	return storage.NewClient(ctx, option.WithCredentialsFile("keys.json"))
+}
+
+func getBucket(client *storage.Client) (*storage.BucketHandle) {
+	return client.Bucket(bucketName)
+}
+
 
 // HandleFileUploadToBucket uploads file to bucket
 func HandleFileUploadToBucket(c *gin.Context) {
 	var err error
 
 	ctx := appengine.NewContext(c.Request)
-
-	storageClient, err = storage.NewClient(ctx, option.WithCredentialsFile("keys.json"))
+	storageClient, err = getClient(ctx)
+	
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": err.Error(),
@@ -38,7 +47,6 @@ func HandleFileUploadToBucket(c *gin.Context) {
 	}
 
 	f, uploadedFile, err := c.Request.FormFile("file")
-	fmt.Println(uploadedFile.Filename)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": err.Error(),
@@ -48,8 +56,8 @@ func HandleFileUploadToBucket(c *gin.Context) {
 	}
 
 	defer f.Close()
-
-	sw := storageClient.Bucket(bucketName).Object(uploadedFile.Filename).NewWriter(ctx)
+	bkt := getBucket(storageClient)
+	sw := bkt.Object(uploadedFile.Filename).NewWriter(ctx)
 
 	if _, err := io.Copy(sw, f); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -80,4 +88,32 @@ func HandleFileUploadToBucket(c *gin.Context) {
 		"message":  "file uploaded successfully",
 		"pathname": u.EscapedPath(),
 	})
+}
+
+// streaming?
+func HandleFileDownloadFromBucket(c *gin.Context) {
+	var err error
+	tmpFileName := "animal.jpeg"
+	ctx := appengine.NewContext(c.Request)
+	storageClient, err = getClient(ctx)
+	bkt := getBucket(storageClient)
+	obj := bkt.Object(tmpFileName)
+	
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": err.Error(),
+			"error":   true,
+		})
+		return
+	}
+
+	// Read it back.
+	r, err := obj.NewReader(ctx)
+	if err != nil {
+		// TODO: Handle error.
+	}
+	defer r.Close()
+	if _, err := io.Copy(os.Stdout, r); err != nil {
+		// TODO: Handle error.
+	}
 }
