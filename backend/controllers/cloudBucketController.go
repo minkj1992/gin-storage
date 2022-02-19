@@ -1,8 +1,10 @@
-package services
+package controllers
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -22,6 +24,10 @@ var (
 	storageClient *storage.Client
 )
 
+// type Form struct {
+//     Files *multipart.FileHeader `form:"files" binding:"required"`
+// }
+
 func getClient(ctx context.Context) (*storage.Client, error){
 	return storage.NewClient(ctx, option.WithCredentialsFile("keys.json"))
 }
@@ -32,34 +38,40 @@ func getBucket(client *storage.Client) (*storage.BucketHandle) {
 
 
 // HandleFileUploadToBucket uploads file to bucket
+// you can upload multiple files or a single file.
 func HandleFileUploadToBucket(c *gin.Context) {
 	var err error
-
 	ctx := appengine.NewContext(c.Request)
-	storageClient, err = getClient(ctx)
-	
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": err.Error(),
-			"error":   true,
-		})
-		return
-	}
-
-	f, uploadedFile, err := c.Request.FormFile("file")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": err.Error(),
-			"error":   true,
-		})
-		return
-	}
-
-	defer f.Close()
+	storageClient, _ = getClient(ctx)
 	bkt := getBucket(storageClient)
-	sw := bkt.Object(uploadedFile.Filename).NewWriter(ctx)
 
-	if _, err := io.Copy(sw, f); err != nil {
+	if err != nil {
+		fmt.Println(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": err.Error(),
+			"error":   true,
+		})
+		return
+	}
+
+	form, _ := c.MultipartForm()
+	files := form.File["files"]
+	for _, file := range files {
+		fileName := file.Filename
+		openedFile, _ := file.Open()
+		uploadFileToGCS(c, &ctx, bkt, fileName, &openedFile)
+    }
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "file uploaded successfully",
+	})
+}
+
+func uploadFileToGCS(c *gin.Context, clientCtx *context.Context, bkt *storage.BucketHandle, fileName string, f *multipart.File) {
+	sw := bkt.Object(fileName).NewWriter(*clientCtx)
+
+	if _, err := io.Copy(sw, *f); err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": err.Error(),
 			"error":   true,
@@ -68,6 +80,7 @@ func HandleFileUploadToBucket(c *gin.Context) {
 	}
 
 	if err := sw.Close(); err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": err.Error(),
 			"error":   true,
@@ -77,20 +90,17 @@ func HandleFileUploadToBucket(c *gin.Context) {
 
 	u, err := url.Parse("/" + bucketName + "/" + sw.Attrs().Name)
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": err.Error(),
 			"Error":   true,
 		})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message":  "file uploaded successfully",
-		"pathname": u.EscapedPath(),
-	})
+	fmt.Printf("%+v\n", u)
 }
 
-// streaming?
+
 func HandleFileDownloadFromBucket(c *gin.Context) {
 	var err error
 	tmpFileName := "animal.jpeg"

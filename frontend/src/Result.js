@@ -45,26 +45,15 @@ export const Result = () => {
       });
     }
 
-    formData.append(
-      "data",
-      new Blob([JSON.stringify(entries)], { type: "application/json" })
-    );
+    // formData.append(
+    //   "data",
+    //   new Blob([JSON.stringify(entries)], { type: "application/json" })
+    // );
+    // entries.forEach((entry) => {
+    //   formData.append(entry[0], entry[1]);
+    // });
 
-    entries.forEach((entry) => {
-      formData.append(entry[0], entry[1]);
-    });
-
-    const res1 = await fetch("http://localhost:8080/v1/profiles", {
-      mode: "no-cors",
-      method: "GET",
-      crossDomain: true,
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-    });
-
-    console.log(formData);
-
-    const res = await fetch("http://localhost:8080/v1/profiles", {
+    const res = await fetch("http://localhost:8080/v1/files", {
       mode: "no-cors",
       crossDomain: true,
       method: "POST",
