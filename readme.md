@@ -2,6 +2,12 @@
 
 > This is a full stack project focused on serving static files
 
+![](static/1.png)
+![](static/2.png)
+![](static/3.png)
+![](static/4.png)
+![](static/5.png)
+
 ## features
 
 ### client side
@@ -29,6 +35,7 @@
 
 ```bash
 npm install
+npm run start
 ```
 
 ### backend
