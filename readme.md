@@ -25,14 +25,10 @@
 
 ### frontend
 
-> [refs](https://www.bezkoder.com/react-file-upload-axios/)
+> [refs](https://github.com/satansdeer/ultimate-react-hook-form-form.git)
 
 ```bash
-npm uninstall -g create-react-app
-npm add create-react-app
-npx create-react-app react-file-upload
-npm install bootstrap axios
-
+npm install
 ```
 
 ### backend
